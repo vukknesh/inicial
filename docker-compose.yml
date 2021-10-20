@@ -1,0 +1,52 @@
+version: "3"
+
+services:
+  backend:
+    build: ./backend
+    volumes:
+      - ./backend/:/backend # maps host diretory to internal container directory
+      - ./backend/staticdjango:/staticdjango
+    working_dir: /backend/
+
+    env_file:
+      - ./backend.env
+
+    ports:
+      - "1616:1616"
+    command:
+      sh -c "python manage.py makemigrations && python manage.py migrate &&
+      gunicorn project.wsgi -b 0.0.0.0:1616"
+    depends_on:
+      - postgres_teste
+    links:
+      - postgres_teste
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - 1717:8888 # 8888 e do nginx.conf
+    volumes:
+      - ./backend/staticdjango:/backend/staticdjango
+      - ./nginx/nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/build:/var/www/frontend
+    depends_on:
+      - backend
+  frontend:
+    image: node:12.2.0-alpine
+    working_dir: /frontend
+    # command: sh entrypoint.sh
+    command: sh -c "yarn && yarn build"
+    volumes:
+      - ./frontend/:/frontend
+  postgres_teste:
+    image: postgres:12.1
+    restart: always
+    env_file:
+      - db.env
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432"
+
+volumes:
+  postgres-data:
